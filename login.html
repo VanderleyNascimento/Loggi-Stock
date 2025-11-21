@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login - Loggi Stock">
+    <title>Login - Loggi Stock</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Login Card -->
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div
+                class="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                <i class="fa-solid fa-boxes-stacked text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-black text-slate-900">Loggi Stock</h1>
+            <p class="text-sm text-slate-500 mt-1">Sistema de Gestão de Estoque</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Email</label>
+                <div class="relative">
+                    <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="email" id="login-email" required
+                        class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="seu.email@loggi.com">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Senha</label>
+                <div class="relative">
+                    <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="password" id="login-password" required
+                        class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="••••••••">
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="login-error"
+                class="hidden bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                <i class="fa-solid fa-circle-exclamation mr-2"></i>
+                <span id="login-error-text">Email ou senha inválidos</span>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit"
+                class="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg active:scale-[0.98] transition-all">
+                <i class="fa-solid fa-right-to-bracket mr-2"></i>
+                Entrar
+            </button>
+        </form>
+
+        <!-- Register Link -->
+        <div class="mt-6 text-center">
+            <p class="text-xs text-slate-500 mb-2">Não tem uma conta?</p>
+            <a href="criar-usuario.html" class="text-sm text-blue-600 hover:text-purple-600 font-semibold">
+                <i class="fa-solid fa-user-plus mr-2"></i>Cadastre-se Grátis
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-center text-xs text-slate-500 mt-8">
+            Loggi Stock v1.0 © 2025
+        </p>
+    </div>
+
+    <script src="js/auth.js"></script>
+</body>
+
+</html>

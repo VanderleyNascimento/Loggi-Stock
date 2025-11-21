@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Sistema de Gestão de Estoque - Loggi Stock">
+    <title>LoggiStock - Gestão de Estoque</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- QRCode.js for QR Code Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+    <!-- Loading Screen -->
+    <div id="loading" class="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div class="text-center">
+            <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4">
+            </div>
+            <p class="text-sm font-semibold text-slate-600">Carregando dados...</p>
+        </div>
+    </div>
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center">
+                    <i class="fa-solid fa-boxes-stacked text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900">LoggiStock</h1>
+                    <p class="text-xs text-slate-500">Gestão de Estoque</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:block text-right">
+                    <p id="user-name" class="text-sm font-semibold text-slate-900">-</p>
+                    <p id="user-role" class="text-xs text-slate-500">-</p>
+                </div>
+                <button onclick="logout()" class="w-10 h-10 rounded-lg hover:bg-red-50 transition-colors" title="Sair">
+                    <i class="fa-solid fa-right-from-bracket text-red-600"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <!-- Main Container -->
+    <main class="container mx-auto px-4 py-6 pb-24">
+        <!-- Tab Navigation -->
+        <div class="flex gap-2 mb-6 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('dashboard')" id="tab-dashboard"
+                class="tab-btn active px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all">
+                <i class="fa-solid fa-chart-line mr-2"></i>Dashboard
+            </button>
+            <button onclick="switchTab('analytics')" id="tab-analytics"
+                class="tab-btn px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all">
+                <i class="fa-solid fa-chart-bar mr-2"></i>Analytics
+            </button>
+            <button onclick="switchTab('materials')" id="tab-materials"
+                class="tab-btn px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all">
+                <i class="fa-solid fa-boxes-stacked mr-2"></i>Materiais
+            </button>
+        </div>
+        <!-- Filters Section -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-6">
+            <div class="flex items-center gap-2 mb-3">
+                <i class="fa-solid fa-filter text-slate-600"></i>
+                <h3 class="font-bold text-sm text-slate-900">Filtros</h3>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <select id="filter-status"
+                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">Todos Status</option>
+                    <option value="critical">Críticos</option>
+                    <option value="warning">Atenção</option>
+                    <option value="ok">OK</option>
+                </select>
+                <select id="filter-type"
+                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">Todos Tipos</option>
+                    <option value="epi">EPIs</option>
+                    <option value="normal">Materiais</option>
+                </select>
+                <select id="filter-period"
+                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30">Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                </select>
+                <button onclick="applyFilters()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+                    Aplicar
+                </button>
+            </div>
+        </div>
+        <!-- Dashboard View -->
+        <div id="view-dashboard" class="space-y-6">
+            <!-- KPIs with Tooltips -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Total Items -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Itens</span>
+                            <i class="fa-solid fa-circle-info text-slate-400 text-xs cursor-help"
+                                title="Quantidade total de itens cadastrados no sistema. Use para ter uma visão geral do tamanho do seu inventário."></i>
+                        </div>
+                        <i class="fa-solid fa-boxes-stacked text-blue-600"></i>
+                    </div>
+                    <p id="kpi-total" class="text-3xl font-black text-slate-900">0</p>
+                </div>
+                <!-- Critical Items -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Críticos</span>
+                            <i class="fa-solid fa-circle-info text-slate-400 text-xs cursor-help"
+                                title="Itens com estoque ABAIXO do mínimo. Indica necessidade URGENTE de reposição! Quanto maior, mais atenção precisa para evitar faltas."></i>
+                        </div>
+                        <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+                    </div>
+                    <p id="kpi-critico" class="text-3xl font-black text-red-600">0</p>
+                </div>
+                <!-- Turnover Rate -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Giro</span>
+                            <i class="fa-solid fa-circle-info text-slate-400 text-xs cursor-help"
+                                title="Índice de Giro: quantas vezes o estoque é renovado. Maior = rotação mais rápida (produtos saem mais). Menor = estoque parado. Ideal: 3-6x ao ano."></i>
+                        </div>
+                        <i class="fa-solid fa-rotate text-emerald-600"></i>
+                    </div>
+                    <p id="kpi-turnover" class="text-3xl font-black text-slate-900">0x</p>
+                </div>
+                <!-- Coverage -->
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Cobertura</span>
+                            <i class="fa-solid fa-circle-info text-slate-400 text-xs cursor-help"
+                                title="Quantos DIAS o estoque atual dura com base no consumo médio. Valor alto = estoque suficiente. Baixo = reabastecer logo. Ideal: 30-60 dias."></i>
+                        </div>
+                        <i class="fa-solid fa-calendar-days text-purple-600"></i>
+                    </div>
+                    <p id="kpi-coverage" class="text-3xl font-black text-slate-900">0</p>
+                    <span class="text-xs text-slate-500">dias</span>
+                </div>
+            </div>
+            <!-- Charts Grid -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900 mb-4">Itens Críticos</h3>
+                    <canvas id="chart-critical"></canvas>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900 mb-4">Status do Estoque</h3>
+                    <canvas id="chart-status"></canvas>
+                </div>
+            </div>
+            <!-- Recent Activity -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-bold text-slate-900">Últimas Movimentações</h2>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">Ao vivo</span>
+                </div>
+                <div id="activity-list" class="space-y-2"></div>
+            </div>
+        </div>
+        <!-- Analytics View -->
+        <div id="view-analytics" class="hidden space-y-6">
+            <!-- Stock Comparison Chart -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Estoque Atual vs Crítico</h3>
+                <div class="overflow-x-auto pb-2">
+                    <div id="chart-comparison-body" class="relative min-w-full">
+                        <canvas id="chart-comparison"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Movement Timeline -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Evolução de Movimentações por Item</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            <i class="fa-solid fa-circle-info mr-1"></i>
+                            Clique nos itens da legenda para mostrar/ocultar individualmente
+                        </p>
+                    </div>
+                    <button onclick="toggleAllTimelineItems()" id="btn-toggle-all"
+                        class="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                        Selecionar Todos
+                    </button>
+                </div>
+                <div class="overflow-x-auto pb-2">
+                    <div id="chart-timeline-body" class="relative min-w-full">
+                        <canvas id="chart-timeline"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Materials View -->
+        <div id="view-materials" class="hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Material
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Estoque
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Mínimo
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Status
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Tipo
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wide">
+                                    Ações
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="materials-table" class="divide-y divide-slate-100">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+    <!-- FAB Buttons -->
+    <div class="fixed bottom-6 right-6 flex flex-col gap-3 z-30">
+        <button id="btn-scanner"
+            class="w-14 h-14 bg-purple-600 text-white rounded-full shadow-lg hover:bg-purple-700 active:scale-95 transition-all"
+            title="Scanner QR">
+            <i class="fa-solid fa-qrcode text-xl"></i>
+        </button>
+        <button onclick="openItemModal()"
+            class="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+            title="Novo Item">
+            <i class="fa-solid fa-plus text-xl"></i>
+        </button>
+        <button onclick="Components.openReportModal()"
+            class="w-14 h-14 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 active:scale-95 transition-all"
+            title="Gerar Relatório">
+            <i class="fa-solid fa-file-invoice text-xl"></i>
+        </button>
+    </div>
+    <!-- Modal: Item (Create/Edit) -->
+    <div id="modal-item"
+        class="hidden fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 transform transition-all">
+            <div class="flex items-center justify-between mb-5">
+                <h3 id="modal-title" class="text-xl font-bold text-slate-900">Novo Item</h3>
+                <button onclick="document.getElementById('modal-item').classList.add('hidden')"
+                    class="w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors">
+                    <i class="fa-solid fa-xmark text-slate-500"></i>
+                </button>
+            </div>
+            <form id="form-item" class="space-y-4" onsubmit="event.preventDefault(); handleItemSave();">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nome do Material</label>
+                    <input type="text" id="input-name" required
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Ex: Luva de Proteção">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Estoque Atual</label>
+                        <input type="number" id="input-qty" min="0" value="0"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Mínimo</label>
+                        <input type="number" id="input-min" min="0" value="5"
+                            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <input type="checkbox" id="input-epi" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="input-epi" class="text-sm font-semibold text-slate-700">É um EPI Controlado?</label>
+                </div>
+                <button type="submit"
+                    class="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all shadow-md">
+                    Salvar Item
+                </button>
+            </form>
+        </div>
+    </div>
+    <!-- Modal: Scanner -->
+    <div id="modal-scanner" class="hidden fixed inset-0 bg-black z-50">
+        <div class="absolute top-0 w-full p-4 flex items-center justify-between z-20">
+            <button id="scanner-close"
+                class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                <i class="fa-solid fa-arrow-left"></i>
+            </button>
+            <span class="text-white font-semibold text-sm bg-white/20 backdrop-blur-md px-4 py-2 rounded-full">Scanner
+                QR</span>
+            <div class="w-10"></div>
+        </div>
+        <div id="reader" class="w-full h-full"></div>
+        <div class="absolute bottom-8 left-0 w-full px-6 z-30">
+            <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20">
+                <p class="text-white text-xs mb-2 text-center">Ou digite o nome do item:</p>
+                <div class="flex gap-2">
+                    <input type="text" id="manual-input" placeholder="Ex: Bota 42"
+                        class="flex-1 px-3 py-2 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60">
+                    <button id="manual-search"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Movement -->
+    <div id="modal-movement"
+        class="hidden fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-2xl p-6 transform transition-all">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-xl font-bold text-slate-900">Movimentação</h3>
+                <button id="movement-close" class="w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors">
+                    <i class="fa-solid fa-xmark text-slate-500"></i>
+                </button>
+            </div>
+            <div id="movement-content">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Report Manager -->
+    <div id="modal-report"
+        class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-100">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-slate-900">Gerar Relatório de Compras</h3>
+                <button onclick="document.getElementById('modal-report').classList.add('hidden')"
+                    class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Filtrar por Status</label>
+                    <select id="report-status"
+                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">Todos</option>
+                        <option value="critical" selected>Apenas Críticos</option>
+                        <option value="warning">Críticos e Atenção</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Categoria</label>
+                    <select id="report-category"
+                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all">Todas</option>
+                        <option value="epi">Apenas EPIs</option>
+                        <option value="material">Apenas Materiais Comuns</option>
+                    </select>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <p class="text-sm text-blue-800">
+                        <i class="fa-solid fa-circle-info mr-2"></i>
+                        A sugestão de compra será calculada para atingir o dobro do estoque mínimo.
+                    </p>
+                </div>
+                <button onclick="Components.generateReport()"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-600/20">
+                    <i class="fa-solid fa-print mr-2"></i>Gerar e Imprimir
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/qrcode-manager.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,499 @@
+// Charts Module - Chart.js Visualizations
+// =====================================
+
+const Charts = {
+    instances: {},
+
+    // Destroy existing chart before creating new one
+    destroyChart(chartId) {
+        if (this.instances[chartId]) {
+            this.instances[chartId].destroy();
+            delete this.instances[chartId];
+        }
+    },
+
+    // Critical Items Bar Chart - Shows items with BIGGEST DEFICIT (most urgently need restock)
+    renderCriticalItems(stock) {
+        this.destroyChart('critical');
+
+        // Calculate deficit for each item and filter critical ones
+        const criticalWithDeficit = stock
+            .filter(i => i.estoqueAtual < i.estoqueCritico) // Below minimum
+            .map(i => ({
+                ...i,
+                deficit: i.estoqueCritico - i.estoqueAtual, // How many units missing
+                percentDeficit: ((i.estoqueCritico - i.estoqueAtual) / i.estoqueCritico * 100) // Percentage below
+            }))
+            .sort((a, b) => b.deficit - a.deficit) // Sort by biggest deficit first
+            .slice(0, 8); // Show top 8 most critical
+
+        if (criticalWithDeficit.length === 0) {
+            const container = document.getElementById('chart-critical').parentElement;
+            container.innerHTML = '<p class="text-sm text-slate-500 text-center py-8">✅ Nenhum item abaixo do estoque mínimo!</p>';
+            return;
+        }
+
+        const ctx = document.getElementById('chart-critical').getContext('2d');
+        this.instances.critical = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: criticalWithDeficit.map(i => i.material),
+                datasets: [
+                    {
+                        label: 'Estoque Atual',
+                        data: criticalWithDeficit.map(i => i.estoqueAtual),
+                        backgroundColor: '#EF4444',
+                        borderColor: '#DC2626',
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Falta para Mínimo',
+                        data: criticalWithDeficit.map(i => i.deficit),
+                        backgroundColor: '#F59E0B',
+                        borderColor: '#D97706',
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 10,
+                            font: {
+                                size: 11,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            afterLabel: function (context) {
+                                const item = criticalWithDeficit[context.dataIndex];
+                                return `Déficit: ${item.deficit} unidades (${Math.round(item.percentDeficit)}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Quantidade',
+                            font: {
+                                size: 11,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    },
+
+    // Stock Status Pie Chart
+    renderStockStatus(stock) {
+        this.destroyChart('status');
+
+        const critical = stock.filter(i => i.estoqueAtual <= i.estoqueCritico).length;
+        const warning = stock.filter(i => i.estoqueAtual > i.estoqueCritico && i.estoqueAtual <= i.estoqueCritico * 1.5).length;
+        const ok = stock.filter(i => i.estoqueAtual > i.estoqueCritico * 1.5).length;
+
+        const ctx = document.getElementById('chart-status').getContext('2d');
+        this.instances.status = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Crítico', 'Atenção', 'OK'],
+                datasets: [{
+                    data: [critical, warning, ok],
+                    backgroundColor: ['#EF4444', '#F59E0B', '#10B981'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    },
+
+    // Stock Comparison Chart - Mobile Responsive with Scroll
+    this.instances.comparison = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sortedStock.map(i => i.material),
+            datasets: [
+                {
+                    label: 'Estoque Atual',
+                    data: sortedStock.map(i => i.estoqueAtual),
+                    backgroundColor: '#3B82F6',
+                    borderColor: '#2563EB',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barThickness: isMobile ? 20 : 35,
+                },
+                {
+                    label: 'Estoque Crítico',
+                    data: sortedStock.map(i => i.estoqueCritico),
+                    backgroundColor: '#EF4444',
+                    borderColor: '#DC2626',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barThickness: isMobile ? 20 : 35,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: isMobile ? 11 : 13,
+                            weight: '600'
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    borderColor: '#3B82F6',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(148, 163, 184, 0.1)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 10 : 12,
+                            weight: '500'
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 9 : 11,
+                            weight: '500'
+                        },
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+},
+
+    // Movement Timeline Chart - Mobile Responsive with Scroll
+    renderMovementTimeline(movements, stock, period = 30) {
+        this.destroyChart('timeline');
+
+        const filterPeriod = parseInt(document.getElementById('filter-period')?.value || period);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - filterPeriod);
+
+        const materialMovements = {};
+        const allDates = new Set();
+
+        movements.forEach(mov => {
+            const movDate = new Date(mov.dataHora);
+            if (movDate >= cutoffDate && mov.tipoOperacao === 'Retirada') {
+                const date = movDate.toLocaleDateString('pt-BR');
+                allDates.add(date);
+
+                if (!materialMovements[mov.material]) {
+                    materialMovements[mov.material] = {};
+                }
+                if (!materialMovements[mov.material][date]) {
+                    materialMovements[mov.material][date] = 0;
+                }
+                materialMovements[mov.material][date] += parseInt(mov.quantidade) || 0;
+            }
+        });
+
+        const dates = Array.from(allDates).sort((a, b) => {
+            const [dA, mA, yA] = a.split('/');
+            const [dB, mB, yB] = b.split('/');
+            return new Date(yA, mA - 1, dA) - new Date(yB, mB - 1, dB);
+        });
+
+        const colorPalette = [
+            '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+            '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
+            '#F43F5E', '#06B6D4', '#8B5CF6', '#D946EF', '#0EA5E9'
+        ];
+
+        const allMaterials = Object.keys(materialMovements)
+            .map(material => ({
+                material,
+                total: Object.values(materialMovements[material]).reduce((a, b) => a + b, 0)
+            }))
+            .sort((a, b) => b.total - a.total);
+
+        const datasets = allMaterials.map((item, idx) => {
+            const material = item.material;
+            return {
+                label: material,
+                data: dates.map(date => materialMovements[material][date] || 0),
+                borderColor: colorPalette[idx % colorPalette.length],
+                backgroundColor: colorPalette[idx % colorPalette.length] + '20',
+                borderWidth: 2,
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                fill: false,
+                hidden: idx >= 10
+            };
+        });
+
+        const canvas = document.getElementById('chart-timeline');
+        const container = canvas.parentElement;
+        const isMobile = window.innerWidth < 768;
+
+        // Mobile: fit to viewport, Desktop: horizontal scroll
+        if (isMobile) {
+            container.style.overflowX = 'visible';
+            canvas.style.width = '100%';
+            canvas.style.height = '300px';
+        } else {
+            const dateWidth = 35;
+            const chartWidth = Math.max(800, dates.length * dateWidth);
+            container.style.overflowX = 'auto';
+            canvas.style.minWidth = chartWidth + 'px';
+            canvas.style.height = '400px';
+        }
+
+        const ctx = canvas.getContext('2d');
+        this.instances.timeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: datasets
+            },
+            options: {
+                responsive: isMobile,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: isMobile ? 6 : 8,
+                            font: {
+                                size: isMobile ? 9 : 10,
+                                weight: '600'
+                            },
+                            boxWidth: 10,
+                            boxHeight: 10
+                        },
+                        onClick: (e, legendItem, legend) => {
+                            const index = legendItem.datasetIndex;
+                            const chart = legend.chart;
+                            const meta = chart.getDatasetMeta(index);
+                            meta.hidden = !meta.hidden;
+                            chart.update();
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
+                        callbacks: {
+                            label: function (context) {
+                                return context.dataset.label + ': ' + context.parsed.y + ' retiradas';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)'
+                        },
+                        ticks: {
+                            font: {
+                                size: isMobile ? 9 : 11
+                            }
+                        },
+                        title: {
+                            display: !isMobile,
+                            text: 'Quantidade de Retiradas',
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.05)'
+                        },
+                        ticks: {
+                            font: {
+                                size: isMobile ? 8 : 10
+                            },
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    }
+                }
+            }
+        });
+
+        window.timelineChartInstance = this.instances.timeline;
+    },
+
+        // EPI Compliance Chart
+        renderEPICompliance(stock) {
+    this.destroyChart('epi');
+
+    const epis = stock.filter(i => i.epiAtivo === 'Sim' || i.epiAtivo == 1);
+    const epiCritical = epis.filter(i => i.estoqueAtual <= i.estoqueCritico).length;
+    const epiOk = epis.length - epiCritical;
+
+    const ctx = document.getElementById('chart-epi').getContext('2d');
+    this.instances.epi = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['EPIs OK', 'EPIs Críticos'],
+            datasets: [{
+                data: [epiOk, epiCritical],
+                backgroundColor: ['#8B5CF6', '#EF4444'],
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+},
+
+// Top 5 Most Moved Items
+renderTop5Items(stock) {
+    this.destroyChart('top5');
+
+    const sorted = [...stock].sort((a, b) =>
+        (parseInt(b.qtdRetiradas) || 0) - (parseInt(a.qtdRetiradas) || 0)
+    ).slice(0, 5);
+
+    const ctx = document.getElementById('chart-top5').getContext('2d');
+    this.instances.top5 = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(i => i.material),
+            datasets: [{
+                label: 'Total de Retiradas',
+                data: sorted.map(i => parseInt(i.qtdRetiradas) || 0),
+                backgroundColor: '#8B5CF6',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+},
+
+// Render all analytics charts
+renderAllAnalytics(stock, movements) {
+    this.renderStockComparison(stock);
+    this.renderMovementTimeline(movements, stock);
+    this.renderEPICompliance(stock);
+    this.renderTop5Items(stock);
+}
+};
+
+// Global function to toggle all items in timeline
+function toggleAllTimelineItems() {
+    if (!window.timelineChartInstance) return;
+
+    const chart = window.timelineChartInstance;
+    const allHidden = chart.data.datasets.every(dataset => dataset.hidden);
+
+    chart.data.datasets.forEach((dataset, index) => {
+        const meta = chart.getDatasetMeta(index);
+        meta.hidden = !allHidden;
+    });
+
+    chart.update();
+
+    const btn = document.getElementById('btn-toggle-all');
+    if (btn) {
+        btn.textContent = allHidden ? 'Desselecionar Todos' : 'Selecionar Todos';
+    }
+}
