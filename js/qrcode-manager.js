@@ -83,20 +83,34 @@ const QRCodeManager = {
     currentItemName: '',
 
     // Open QR Code modal and generate QR
-    openModal: function (itemName) {
-        this.currentItemName = itemName;
-        const item = window.stockData.find(i => i.material === itemName);
+    openModal: function (itemIdentifier) {
+        // itemIdentifier can be either:
+        // - number: item ID
+        // - string: item name (for backward compatibility)
+
+        let item;
+
+        if (typeof itemIdentifier === 'number') {
+            // Search by ID
+            item = window.stockData.find(i => i.id === itemIdentifier);
+        } else {
+            // Search by name (fallback for old QR codes)
+            item = window.stockData.find(i => i.material === itemIdentifier);
+        }
 
         if (!item) {
             alert('Item não encontrado!');
             return;
         }
 
+        // Store current item name for reference
+        this.currentItemName = item.material;
+
         // Update modal content
-        document.getElementById('qr-item-name').textContent = itemName;
-        document.getElementById('qr-item-stock').textContent = item.quantidade;
-        document.getElementById('qr-item-min').textContent = item.critico;
-        document.getElementById('qr-item-type').textContent = item.tipo === 'epi' ? 'EPI' : 'Material';
+        document.getElementById('qr-item-name').textContent = item.material;
+        document.getElementById('qr-item-stock').textContent = item.estoqueAtual || item.quantidade || 0;
+        document.getElementById('qr-item-min').textContent = item.estoqueCritico || item.critico || 0;
+        document.getElementById('qr-item-type').textContent = (item.epiAtivo === 'Sim' || item.epiAtivo == 1) ? 'EPI' : 'Material';
 
         // Clear previous QR code
         document.getElementById('qr-code-canvas').innerHTML = '';
@@ -198,7 +212,7 @@ const QRCodeManager = {
                         <img src="${qrImage}" class="qr-code" alt="QR Code">
                         <div class="item-name">${this.currentItemName}</div>
                         <div class="item-info">
-                            Estoque: ${item.quantidade} | Mín: ${item.critico}
+                            Estoque: ${item.estoqueAtual || item.quantidade || 0} | Mín: ${item.estoqueCritico || item.critico || 0}
                         </div>
                     </div>
                 </body>
@@ -211,7 +225,7 @@ const QRCodeManager = {
                     <img src="${qrImage}" class="qr-code" alt="QR Code">
                     <div class="item-name">${this.currentItemName}</div>
                     <div class="item-info">
-                        Estoque: ${item.quantidade} | Mín: ${item.critico} | ${item.tipo === 'epi' ? 'EPI' : 'Material'}
+                        Estoque: ${item.estoqueAtual || item.quantidade || 0} | Mín: ${item.estoqueCritico || item.critico || 0} | ${(item.epiAtivo === 'Sim' || item.epiAtivo == 1) ? 'EPI' : 'Material'}
                     </div>
                 </div>
             `).join('');

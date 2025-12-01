@@ -82,7 +82,10 @@ const Components = {
 
         const recent = movements.slice(0, 10);
         container.innerHTML = recent.map(mov => {
-            const isRetirada = mov.tipoOperacao === 'Retirada';
+            // Check both 'tipo' and 'tipoOperacao' fields
+            const tipo = mov.tipoOperacao || mov.tipo;
+            const isRetirada = tipo === 'Retirada';
+
             return `
                 <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center ${isRetirada ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
@@ -147,7 +150,10 @@ const Components = {
                     </td>
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-2">
-                            <button onclick="openQRModal('${item.material}')" class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors" title="QR Code">
+                            <button onclick="openMovementModal('${item.material}')" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Movimentação">
+                                <i class="fa-solid fa-right-left"></i>
+                            </button>
+                            <button onclick="openQRModal(${item.id || `'${item.material}'`})" class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors" title="QR Code">
                                 <i class="fa-solid fa-qrcode"></i>
                             </button>
                             ${(() => {
@@ -205,6 +211,139 @@ async function confirmDelete(material) {
         Components.showToast('Erro ao excluir item.', 'error');
     }
 }
+
+// Movement Modal
+Components.showMovementModal = function (item) {
+    const modal = document.getElementById('modal-movement');
+    const content = document.getElementById('movement-content');
+
+    if (!modal || !content) {
+        console.error('Movement modal elements not found!');
+        return;
+    }
+
+    // Generate modal content
+    content.innerHTML = `
+        <div class="space-y-4">
+            <div class="bg-slate-50 p-4 rounded-lg">
+                <h4 class="font-bold text-lg text-slate-900 mb-2">${item.material}</h4>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <span class="text-slate-500">Estoque Atual:</span>
+                        <span class="font-bold text-slate-900 ml-1">${item.estoqueAtual}</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">Mínimo:</span>
+                        <span class="font-bold text-slate-900 ml-1">${item.estoqueCritico}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Quantidade</label>
+                <div class="flex items-center gap-3">
+                    <button onclick="adjustQuantity(-1)" type="button"
+                        class="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-700 transition-colors">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <input type="number" id="movement-qty" value="1" min="1"
+                        class="flex-1 px-4 py-2 text-center border border-slate-200 rounded-lg font-bold text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="adjustQuantity(1)" type="button"
+                        class="w-10 h-10 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-700 transition-colors">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="handleMovement('${item.material}', 'Retirada')"
+                    class="py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors">
+                    <i class="fa-solid fa-arrow-down mr-2"></i>Retirada
+                </button>
+                <button onclick="handleMovement('${item.material}', 'Entrada')"
+                    class="py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors">
+                    <i class="fa-solid fa-arrow-up mr-2"></i>Entrada
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Show modal
+    modal.classList.remove('hidden');
+};
+
+// Helper to open movement modal from HTML onclick
+window.openMovementModal = function (materialName) {
+    const item = window.stockData.find(i => i.material === materialName);
+    if (item) {
+        Components.showMovementModal(item);
+    } else {
+        Components.showToast('Item não encontrado', 'error');
+    }
+};
+
+// Handle Movement
+async function handleMovement(material, type) {
+    const qty = parseInt(document.getElementById('movement-qty').value) || 1;
+    const user = window.getCurrentUser ? window.getCurrentUser() : null;
+
+    if (!user) {
+        Components.showToast('Usuário não autenticado', 'error');
+        return;
+    }
+
+    try {
+        Components.showToast(`Registrando ${type.toLowerCase()}...`, 'info');
+
+        // Register movement with robust payload to ensure SheetDB captures it
+        // Sending multiple variations of keys to match potential column names
+        await API.registerMovement({
+            material: material,
+            Material: material,
+
+            tipo: type,
+            Tipo: type,
+            tipoOperacao: type,
+
+            quantidade: qty,
+            Quantidade: qty,
+            qtd: qty,
+
+            usuario: user.email,
+            Usuario: user.email,
+            email: user.email
+        });
+
+        // Update stock
+        const item = window.stockData.find(i => i.material === material);
+        if (item) {
+            const newQty = type === 'Retirada'
+                ? item.estoqueAtual - qty
+                : item.estoqueAtual + qty;
+
+            await API.updateItem(material, {
+                estoqueAtual: Math.max(0, newQty),
+                qtdRetiradas: type === 'Retirada'
+                    ? (item.qtdRetiradas || 0) + qty
+                    : (item.qtdRetiradas || 0)
+            });
+        }
+
+        Components.showToast(`${type} registrada com sucesso!`, 'success');
+        document.getElementById('modal-movement').classList.add('hidden');
+
+        // Reload data
+        if (window.loadData) {
+            await window.loadData();
+        }
+    } catch (error) {
+        console.error(error);
+        Components.showToast(`Erro ao registrar ${type.toLowerCase()}`, 'error');
+    }
+}
+
+// Expose handleMovement globally
+window.handleMovement = handleMovement;
 
 // Report Manager
 Components.openReportModal = function () {

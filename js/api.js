@@ -143,6 +143,11 @@ const API = {
         }
     },
 
+    // Alias for compatibility (registerMovement -> createMovement)
+    async registerMovement(movement) {
+        return this.createMovement(movement);
+    },
+
     // Get inventory history
     async getInventoryHistory() {
         return this.fetchWithCache(API_URL, 'Inventario');
