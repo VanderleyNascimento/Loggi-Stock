@@ -1,10 +1,10 @@
 # 📦 Loggi Stock - Sistema de Gestão de Estoque
 
-> Sistema web completo para controle de estoque com analytics em tempo real, inventário físico, controle de EPIs e integração com SheetDB.
+> Sistema web completo para controle de estoque com analytics em tempo real, inventário físico, controle de EPIs e integração com Supabase.
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-production-success.svg)
 
@@ -30,13 +30,13 @@
 
 ## 🎯 Visão Geral
 
-O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar o controle de materiais e EPIs (Equipamentos de Proteção Individual). Com interface mobile-first e recursos avançados de analytics, oferece:
+O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar o controle de materiais e EPIs (Equipamentos de Proteção Individual). Recentemente migrado para **Supabase**, oferece performance superior, segurança robusta e escalabilidade.
 
 - 📊 **Dashboard em tempo real** com KPIs e gráficos interativos
 - 📋 **Sistema de inventário** com contagem física e reconciliação
 - 🔍 **Busca inteligente** com autocomplete por ID e nome
 - 📱 **Scanner QR Code** para identificação rápida de itens
-- 👥 **Controle de acesso** com autenticação SHA-256
+- 👥 **Controle de acesso** com autenticação segura (SHA-256)
 - 📈 **Analytics** com gráficos de comparação e timeline
 
 ---
@@ -54,7 +54,7 @@ O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar
 - **Gráficos em Tempo Real:**
   - Itens críticos (déficit prioritário)
   - Status do estoque (OK, Atenção, Crítico)
-  - Últimas movimentações
+  - Últimas movimentações (Live feed)
 
 ### 📊 Analytics
 
@@ -70,7 +70,8 @@ O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar
 
 ### 📦 Materiais
 
-- **Tabela Completa:**
+- **Gestão Completa:**
+  - CRUD (Criar, Ler, Atualizar, Deletar)
   - Busca por ID ou nome
   - Filtros por status e tipo
   - Badges visuais de status
@@ -79,32 +80,30 @@ O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar
 - **Ações:**
   - Movimentação (entrada/saída)
   - Geração de QR Code
-  - Exclusão (apenas admin)
+  - Exclusão segura (com modal de confirmação)
 
 ### 📋 Inventário
 
 - **Contagem Física:**
   - Busca com autocomplete
-  - Scanner QR Code
-  - Resumo em tempo real
+  - Scanner QR Code integrado
+  - Resumo em tempo real (Contados, Sobras, Faltas)
   - Histórico de inventários
   
 - **Reconciliação:**
-  - Identificação de sobras
-  - Identificação de faltas
-  - Ajuste automático de estoque
+  - Identificação automática de divergências
+  - Ajuste de estoque com um clique
 
 ### 🔐 Autenticação
 
 - **Segurança:**
   - Hash SHA-256 de senhas
-  - Tokens JWT
+  - Sessão persistente
   - Controle de permissões (Admin/Operador)
   
 - **Gestão de Usuários:**
-  - Login persistente
-  - Logout seguro
-  - Exibição de nome e cargo
+  - Login seguro
+  - Bloqueio de usuários inativos
 
 ---
 
@@ -113,23 +112,24 @@ O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar
 ### Frontend
 
 - **HTML5** - Estrutura semântica
-- **CSS3** + **Tailwind CSS** - Estilização moderna
-- **JavaScript (ES6+)** - Lógica do aplicativo
+- **CSS3** + **Tailwind CSS** - Estilização moderna e responsiva
+- **JavaScript (ES6+)** - Lógica do aplicativo (Modular)
 - **Font Awesome 6** - Ícones SVG
 - **Chart.js 4** - Gráficos interativos
 
-### Backend/APIs
+### Backend/Database
 
-- **SheetDB** - Backend as a Service
-  - Planilha Google Sheets como database
-  - API REST automática
-  - Cache inteligente
+- **Supabase** (PostgreSQL)
+  - Banco de dados relacional robusto
+  - API REST automática via PostgREST
+  - Segurança Row Level Security (RLS)
   
 ### Bibliotecas
 
 - **html5-qrcode** - Scanner QR Code
 - **qrcode.js** - Geração de QR Codes
 - **CryptoJS** - Hashing SHA-256
+- **Supabase JS Client** - Integração com backend
 
 ---
 
@@ -138,7 +138,7 @@ O **Loggi Stock** é um sistema de gestão de estoque desenvolvido para otimizar
 ### Pré-requisitos
 
 - Navegador moderno (Chrome, Firefox, Edge)
-- Conta Google (para SheetDB)
+- Conta no [Supabase](https://supabase.com/)
 - Servidor web local ou hospedagem
 
 ### Passo a Passo
@@ -150,25 +150,20 @@ git clone https://github.com/VanderleyNascimento/GAS-ESTOQUE.git
 cd GAS-ESTOQUE
 ```
 
-2. **Configure as APIs:**
+2. **Configure o Supabase:**
 
-Edite `js/api.js` e `js/auth.js` com suas credenciais SheetDB:
+   - Crie um novo projeto no Supabase.
+   - Execute o script SQL fornecido em `tools/supabase-schema.sql` no Editor SQL do Supabase para criar as tabelas (`estoque`, `movimentacoes`, `usuarios`, `inventarios`).
+
+3. **Configure as Credenciais:**
+
+   Edite `js/supabase-config.js` com suas credenciais do Supabase:
 
 ```javascript
-// js/api.js
-const API_URL = 'https://sheetdb.io/api/v1/SEU_ID_AQUI';
-
-// js/auth.js
-const USERS_API = 'https://sheetdb.io/api/v1/SEU_ID_AQUI?sheet=usuarios';
+// js/supabase-config.js
+const SUPABASE_URL = 'SUA_URL_SUPABASE';
+const SUPABASE_KEY = 'SUA_ANON_KEY_SUPABASE';
 ```
-
-3. **Configure a planilha Google Sheets:**
-
-Crie uma planilha com as seguintes abas:
-
-- **Estoque** (colunas: id, material, estoqueAtual, estoqueCritico, epiAtivo)
-- **Movimentacoes** (colunas: id, material, tipo, quantidade, usuario, data)
-- **usuarios** (colunas: nome, email, senha, cargo)
 
 4. **Execute localmente:**
 
@@ -188,31 +183,24 @@ Acesse: `http://localhost:8000`
 
 ### Primeiro Acesso
 
-1. Acesse a URL do sistema
-2. Faça login com credenciais de admin
-3. Cadastre materiais pelo botão "+"
-4. Configure estoques críticos
+1. Acesse a URL do sistema.
+2. Faça login (usuário padrão criado via SQL ou cadastro novo).
+   - **Nota:** Novos cadastros precisam ser ativados no banco de dados (`ativo = 1`).
+3. Cadastre materiais pelo botão "+" (FAB).
 
 ### Movimentações
 
-1. Clique no botão "EPI" de um material
-2. Selecione tipo (Entrada/Saída)
-3. Informe quantidade e usuário
-4. Confirme a operação
+1. Clique no botão de ação de um material ou use o Scanner.
+2. Selecione tipo (Entrada/Saída).
+3. Informe quantidade.
+4. Confirme a operação.
 
 ### Inventário
 
-1. Acesse a aba "Inventário"
-2. Use o campo de busca ou scanner QR
-3. Informe a quantidade contada
-4. Finalize o balanço
-
-### QR Codes
-
-1. Clique no ícone QR de um material
-2. Escolha layout de impressão
-3. Imprima ou baixe
-4. Cole no local do material
+1. Acesse a aba "Inventário".
+2. Use o campo de busca ou scanner QR para contar itens.
+3. O sistema calcula automaticamente sobras e faltas.
+4. Finalize o balanço para atualizar o estoque oficial.
 
 ---
 
@@ -222,215 +210,66 @@ Acesse: `http://localhost:8000`
 
 ```
 GAS-ESTOQUE/
-├── index.html              # Página principal
+├── index.html              # Página principal (SPA)
 ├── css/
 │   └── styles.css          # Estilos customizados
 ├── js/
 │   ├── app.js              # Orquestrador principal
-│   ├── api.js              # Comunicação com API
-│   ├── auth.js             # Autenticação
-│   ├── components.js       # Componentes UI
-│   ├── charts.js           # Gráficos Chart.js
-│   ├── inventory.js        # Lógica de inventário
+│   ├── api-supabase.js     # Camada de API Supabase
+│   ├── auth.js             # Lógica de Autenticação
+│   ├── components.js       # Componentes UI (Tabelas, Modais)
+│   ├── charts.js           # Visualização de Dados
+│   ├── inventory.js        # Gestão de Inventário
 │   ├── scanner.js          # Scanner QR Code
-│   ├── qrcode-manager.js   # Geração QR Codes
-│   └── modal.js            # Modais
-└── README.md               # Este arquivo
+│   ├── toast.js            # Notificações
+│   └── confirm-modal.js    # Modais de Confirmação
+└── README.md               # Documentação
 ```
 
 ### Fluxo de Dados
 
 ```mermaid
 graph LR
-    A[UI] --> B[app.js]
-    B --> C[api.js]
-    C --> D[SheetDB API]
-    D --> E[Google Sheets]
+    A[UI / Usuário] --> B[app.js]
+    B --> C[api-supabase.js]
+    C --> D[Supabase Client]
+    D --> E[PostgreSQL Database]
     E --> D
     D --> C
-    C --> F[Cache]
-    F --> B
+    C --> B
     B --> A
 ```
-
-### Pattern: MVC Simplificado
-
-- **Model**: `api.js` (comunicação com backend)
-- **View**: `components.js` + `charts.js` (renderização)
-- **Controller**: `app.js` (orquestração e eventos)
-
----
-
-## 🔌 API
-
-### Endpoints SheetDB
-
-#### Listar Estoque
-
-```http
-GET https://sheetdb.io/api/v1/{ID}?sheet=Estoque
-```
-
-#### Criar Material
-
-```http
-POST https://sheetdb.io/api/v1/{ID}?sheet=Estoque
-Content-Type: application/json
-
-{
-  "material": "Luva de Proteção",
-  "estoqueAtual": 50,
-  "estoqueCritico": 10,
-  "epiAtivo": "Sim"
-}
-```
-
-#### Atualizar Estoque
-
-```http
-PATCH https://sheetdb.io/api/v1/{ID}/material/{nome}?sheet=Estoque
-Content-Type: application/json
-
-{
-  "estoqueAtual": 45
-}
-```
-
-#### Deletar Material
-
-```http
-DELETE https://sheetdb.io/api/v1/{ID}/material/{nome}?sheet=Estoque
-```
-
-### Cache
-
-O sistema implementa cache inteligente:
-
-```javascript
-// Cache de 5 minutos
-if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) {
-    return cached.data;
-}
-```
-
-Invalidação automática em:
-- Criação
-- Atualização
-- Exclusão
 
 ---
 
 ## 🚀 Performance
 
-### Otimizações Implementadas
+### Otimizações
 
-- ✅ **Event Delegation** - Redução de 68x no tempo de clique
-- ✅ **Debounce** - Busca com 300ms de delay
-- ✅ **Lazy Loading** - Gráficos renderizados sob demanda
-- ✅ **Cache API** - 5 minutos de validade
-- ✅ **CSS Animations** - Hardware-accelerated transforms
-
-### Métricas
-
-| Métrica | Valor | Status |
-|---------|-------|--------|
-| First Contentful Paint | <1s | 🟢 |
-| Time to Interactive | <2s | 🟢 |
-| Lighthouse Score | 95+ | 🟢 |
-| Mobile Optimized | Sim | ✅ |
+- ✅ **Migração para SQL** - Consultas complexas otimizadas no banco.
+- ✅ **Lazy Loading** - Carregamento de módulos sob demanda.
+- ✅ **Debounce** - Otimização de busca e input.
+- ✅ **Z-Index Fix** - Correções de sobreposição de UI.
 
 ---
 
 ## 🔒 Segurança
 
-### Implementações
-
-- 🔐 **SHA-256** para hash de senhas
-- 🎫 **JWT tokens** para sessões
-- 🛡️ **CORS** configurado no SheetDB
-- 👥 **RBAC** (Role-Based Access Control)
-  - Admin: todas as operações
-  - Operador: apenas movimentações
-
-### Recomendações
-
-⚠️ **IMPORTANTE:**
-- Não exponha as chaves da API SheetDB
-- Use variáveis de ambiente em produção
-- Ative autenticação no SheetDB
-- Implemente rate limiting
-
----
-
-## 🧪 Testes
-
-### Funcionalidades Testadas
-
-- [x] Login/Logout
-- [x] CRUD de materiais
-- [x] Movimentações (entrada/saída)
-- [x] Scanner QR Code
-- [x] Autocomplete inventário
-- [x] Geração de QR Codes
-- [x] Gráficos responsivos
-- [x] Filtros e busca
-- [x] Export de relatórios
-
-### Navegadores Suportados
-
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Edge 90+
+- 🔐 **SHA-256** para hash de senhas (client-side antes do envio).
+- 🛡️ **Supabase RLS** (Row Level Security) pode ser configurado para maior proteção.
+- 👥 **Validação de Contas** - Usuários novos nascem desativados.
 
 ---
 
 ## 🤝 Contribuindo
 
-Contribuições são bem-vindas! Siga os passos:
+Contribuições são bem-vindas!
 
 1. **Fork** o projeto
 2. **Crie** uma branch (`git checkout -b feature/MinhaFeature`)
 3. **Commit** suas mudanças (`git commit -m 'feat: Minha funcionalidade'`)
 4. **Push** para a branch (`git push origin feature/MinhaFeature`)
 5. Abra um **Pull Request**
-
-### Convenções de Commits
-
-Usamos [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` - Nova funcionalidade
-- `fix:` - Correção de bug
-- `docs:` - Documentação
-- `style:` - Formatação
-- `refactor:` - Refatoração
-- `perf:` - Performance
-- `test:` - Testes
-
----
-
-## 📝 Changelog
-
-### [2.0.0] - 2024-12-01
-
-#### Added
-- ✨ Sistema de autocomplete no inventário
-- ✨ Menu FAB animado e colapsável
-- ✨ Scanner QR Code integrado
-- 📊 Novos gráficos de analytics
-
-#### Changed
-- ⚡ Otimização de performance (68x mais rápido)
-- 🎨 UI/UX melhorada para mobile
-- 📱 Responsividade aprimorada
-
-#### Fixed
-- 🐛 Correção de timing do Font Awesome
-- 🐛 Event delegation no delete
-
-### [1.0.0] - 2024-11-01
-
-- 🎉 Versão inicial
 
 ---
 
@@ -443,23 +282,6 @@ Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) par
 ## 👥 Autores
 
 - **Vanderley Nascimento** - [@VanderleyNascimento](https://github.com/VanderleyNascimento)
-
----
-
-## 🙏 Agradecimentos
-
-- Chart.js pela biblioteca de gráficos
-- Font Awesome pelos ícones
-- Tailwind CSS pelo framework CSS
-- SheetDB pela API de backend
-
----
-
-## 📞 Suporte
-
-- 📧 Email: suporte@loggistock.com
-- 🐛 Issues: [GitHub Issues](https://github.com/VanderleyNascimento/GAS-ESTOQUE/issues)
-- 💬 Discussões: [GitHub Discussions](https://github.com/VanderleyNascimento/GAS-ESTOQUE/discussions)
 
 ---
 
