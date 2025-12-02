@@ -1,7 +1,7 @@
 // API Layer - SheetDB Communication
 // =====================================
 
-const API_URL = 'https://sheetdb.io/api/v1/tf5zivcixv43a';
+const API_URL = 'https://sheetdb.io/api/v1/qi3jec0p8ofj7';
 
 const API = {
     // Cache configuration
@@ -45,6 +45,7 @@ const API = {
 
         try {
             const response = await fetch(`${API_URL}?sheet=${sheetName}`);
+
             if (response.status === 429) {
                 console.warn('⚠️ API Rate Limit Reached. Using fallback/empty data.');
                 // Try to return stale cache if available, ignoring TTL
@@ -91,9 +92,17 @@ const API = {
     },
 
     // Update stock item
-    async updateItem(materialName, updates) {
+    async updateItem(identifier, updates) {
         try {
-            const response = await fetch(`${API_URL}/material/${encodeURIComponent(materialName)}?sheet=Estoque`, {
+            let endpoint;
+            // Check if identifier is a number (ID) or string (Material Name)
+            if (identifier && (typeof identifier === 'number' || /^\d+$/.test(identifier))) {
+                endpoint = `${API_URL}/id/${identifier}?sheet=Estoque`;
+            } else {
+                endpoint = `${API_URL}/material/${encodeURIComponent(identifier)}?sheet=Estoque`;
+            }
+
+            const response = await fetch(endpoint, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates)
@@ -108,16 +117,59 @@ const API = {
     },
 
     // Delete stock item
-    async deleteItem(materialName) {
+    async deleteItem(identifier, materialNameFallback = null) {
         try {
-            const response = await fetch(`${API_URL}/material/${encodeURIComponent(materialName)}?sheet=Estoque`, {
-                method: 'DELETE'
-            });
-            if (!response.ok) throw new Error('Erro ao deletar item');
-            this.cache.clear('Estoque'); // Invalidate cache
-            return await response.json();
+            let response;
+            let usedId = false;
+
+            // Strategy 1: Delete by Material Name (more reliable with SheetDB)
+            if (materialNameFallback) {
+                console.log(`🚀 Strategy 1: Delete by Material Name "${materialNameFallback}"`);
+                response = await fetch(`${API_URL}/material/${encodeURIComponent(materialNameFallback)}?sheet=Estoque`, { method: 'DELETE' });
+                console.log(`📊 Strategy 1 Response: Status ${response.status}, OK=${response.ok}`);
+                const responseText = await response.clone().text();
+                console.log(`📄 Strategy 1 Response Body:`, responseText);
+            } else if (identifier && (typeof identifier === 'number' || /^\d+$/.test(identifier))) {
+                console.log(`🚀 Strategy 1: Delete by ID ${identifier} (no name fallback provided)`);
+                response = await fetch(`${API_URL}/id/${identifier}?sheet=Estoque`, { method: 'DELETE' });
+                console.log(`📊 Strategy 1 Response: Status ${response.status}, OK=${response.ok}`);
+                const responseText = await response.clone().text();
+                console.log(`📄 Strategy 1 Response Body:`, responseText);
+                usedId = true;
+            } else {
+                console.log(`🚀 Strategy 1: Delete by Material ${identifier}`);
+                response = await fetch(`${API_URL}/material/${encodeURIComponent(identifier)}?sheet=Estoque`, { method: 'DELETE' });
+                console.log(`📊 Strategy 1 Response: Status ${response.status}, OK=${response.ok}`);
+                usedId = false;
+            }
+
+            // Strategy 2: Try by ID if name deletion failed (less common case)
+            if ((!response || !response.ok || response.status === 404) && identifier && (typeof identifier === 'number' || /^\d+$/.test(identifier))) {
+                console.warn(`⚠️ Strategy 1 failed. Strategy 2: Delete by ID: ${identifier}`);
+                response = await fetch(`${API_URL}/id/${identifier}?sheet=Estoque`, { method: 'DELETE' });
+                usedId = true;
+            }
+
+            // Strategy 3: Try the /all endpoint with query params (Nuclear option)
+            if (!response || !response.ok || response.status === 404) {
+                console.warn(`⚠️ Strategy 2 failed. Strategy 3: Delete via /all endpoint`);
+                let query = usedId ? `id=${identifier}` : `material=${encodeURIComponent(identifier)}`;
+                if (usedId && materialNameFallback) {
+                    query = `material=${encodeURIComponent(materialNameFallback)}`;
+                }
+                response = await fetch(`${API_URL}/all?${query}&sheet=Estoque`, { method: 'DELETE' });
+            }
+
+            // Check final result
+            if (!response.ok && response.status !== 404) {
+                throw new Error(`Falha na exclusão: ${response.status} ${response.statusText}`);
+            }
+
+            this.cache.clear('Estoque');
+            return response.ok ? await response.json() : { status: 'deleted_or_missing' };
         } catch (error) {
             console.error('API Error:', error);
+            this.cache.clear('Estoque');
             throw error;
         }
     },
@@ -146,6 +198,24 @@ const API = {
     // Alias for compatibility (registerMovement -> createMovement)
     async registerMovement(movement) {
         return this.createMovement(movement);
+    },
+
+    // Remove duplicate rows from sheet
+    async removeDuplicates() {
+        try {
+            console.log('🧹 Removing duplicates from Estoque...');
+            const response = await fetch(`${API_URL}/duplicates?sheet=Estoque`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error('Erro ao remover duplicatas');
+            this.cache.clear('Estoque');
+            const result = await response.json();
+            console.log('✅ Duplicates removed:', result);
+            return result;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
     },
 
     // Get inventory history

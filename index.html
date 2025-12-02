@@ -16,6 +16,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- QRCode.js for QR Code Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -180,6 +184,7 @@
                 <div id="activity-list" class="space-y-2"></div>
             </div>
         </div>
+
         <!-- Analytics View -->
         <div id="view-analytics" class="hidden space-y-6">
             <!-- Stock Comparison Chart -->
@@ -206,6 +211,12 @@
                         Selecionar Todos
                     </button>
                 </div>
+
+                <!-- External Legend Container -->
+                <div id="chart-timeline-legend"
+                    class="flex flex-wrap gap-2 mb-4 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-100">
+                </div>
+
                 <div class="overflow-x-auto pb-2">
                     <div id="chart-timeline-body" class="relative min-w-full">
                         <canvas id="chart-timeline"></canvas>
@@ -213,6 +224,7 @@
                 </div>
             </div>
         </div>
+
         <!-- Materials View -->
         <div id="view-materials" class="hidden space-y-6">
             <!-- Campo de busca -->
@@ -351,7 +363,7 @@
                     <i class="fa-solid fa-xmark text-slate-500"></i>
                 </button>
             </div>
-            <form id="form-item" class="space-y-4" onsubmit="event.preventDefault(); handleItemSave();">
+            <form id="form-item" class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nome do Material</label>
                     <input type="text" id="input-name" required
@@ -393,7 +405,7 @@
             <div class="w-10"></div>
         </div>
         <div id="reader" class="w-full h-full"></div>
-        <div class="absolute bottom-8 left-0 w-full px-6 z-30">
+        <div class="absolute bottom-8 left-0 w-full px-6 z-50">
             <div class="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20">
                 <p class="text-white text-xs mb-2 text-center">Ou digite o nome do item:</p>
                 <div class="flex gap-2">
@@ -467,12 +479,15 @@
     </div>
     <!-- Scripts -->
     <script src="js/auth.js"></script>
-    <script src="js/api.js"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/api-supabase.js"></script>
     <script src="js/components.js"></script>
     <script src="js/charts.js"></script>
     <script src="js/scanner.js"></script>
     <script src="js/qrcode-manager.js"></script>
     <script src="js/inventory.js"></script>
+    <script src="js/toast.js"></script>
+    <script src="js/confirm-modal.js"></script>
     <script src="js/app.js"></script>
 </body>
 

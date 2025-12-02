@@ -80,11 +80,13 @@ const Components = {
             return;
         }
 
+        // Get the 10 most recent movements (they come sorted DESC from API, so just take first 10)
         const recent = movements.slice(0, 10);
         container.innerHTML = recent.map(mov => {
             // Check both 'tipo' and 'tipoOperacao' fields
             const tipo = mov.tipoOperacao || mov.tipo;
-            const isRetirada = tipo === 'Retirada';
+            // Handle both legacy 'Retirada' and new 'Saída'
+            const isRetirada = tipo === 'Retirada' || tipo === 'Saída';
 
             return `
                 <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
@@ -160,7 +162,7 @@ const Components = {
                     const user = window.getCurrentUser ? window.getCurrentUser() : null;
                     const isAdmin = user && user.cargo === 'Administrador';
                     return isAdmin ? `
-                            <button data-action="delete" data-material="${item.material}" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Excluir">
+                            <button data-action="delete" data-id="${item.id || ''}" data-material="${item.material}" class="w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Excluir">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                             ` : '';
@@ -176,7 +178,7 @@ const Components = {
         tbody.querySelectorAll('[data-action="delete"]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                confirmDelete(btn.dataset.material);
+                confirmDelete(btn.dataset.id, btn.dataset.material);
             });
         });
     },
@@ -196,19 +198,52 @@ function adjustQuantity(delta) {
 // handleMovement removed as it's no longer used
 // handleMaterialAction removed as it's no longer used
 
-async function confirmDelete(material) {
-    if (!confirm(`Tem certeza que deseja excluir o item "${material}"?\nEsta ação não pode ser desfeita.`)) {
+async function confirmDelete(id, material) {
+    console.log(`🗑️ confirmDelete called for ID: ${id}, Material: ${material}`);
+    const confirmed = await ConfirmModal.confirmDelete(material);
+    if (!confirmed) {
+        console.log('❌ Deletion cancelled by user');
         return;
     }
 
     try {
         Components.showToast('Excluindo item...', 'info');
-        await API.deleteItem(material);
+        console.log('🚀 Calling API.deleteItem...');
+        // Pass material as fallback
+        await API.deleteItem(id ? parseInt(id) : material, material);
+        console.log('✅ API.deleteItem returned success');
         Components.showToast('Item excluído com sucesso!', 'success');
-        if (window.loadData) window.loadData();
     } catch (error) {
-        console.error(error);
+        console.error('❌ Error in confirmDelete:', error);
         Components.showToast('Erro ao excluir item.', 'error');
+    } finally {
+        console.log('🔄 Removendo item da lista imediatamente (optimistic update)...');
+        if (window.API && window.API.cache) window.API.cache.clear(); // Force clear
+
+        // Remove item from local data immediately for better UX
+        const index = window.stockData.findIndex(i => i.id === parseInt(id) || i.material === material);
+        if (index !== -1) {
+            window.stockData.splice(index, 1);
+            Components.renderMaterialsTable(window.stockData);
+            Components.renderKPIs(window.stockData, window.movementsData);
+            console.log('✅ Item removido da interface');
+        }
+
+        // Reload after 1 second to verify deletion (cache is now disabled on SheetDB)
+        setTimeout(async () => {
+            console.log('🔄 Verificando estado real do banco após 1s...');
+            if (window.loadData) {
+                await window.loadData();
+                // Check if item came back (duplicate)
+                const itemStillExists = window.stockData.find(i => i.id === parseInt(id) || i.material === material);
+                if (itemStillExists) {
+                    Components.showToast('⚠️ Item reapareceu! Há duplicatas no banco. Use API.removeDuplicates() no console.', 'warning');
+                    console.warn('⚠️ Item ainda existe após delete. Prováveis duplicatas:', itemStillExists);
+                } else {
+                    console.log('✅ Exclusão confirmada - item não existe mais no banco');
+                }
+            }
+        }, 1000);
     }
 }
 
@@ -295,23 +330,15 @@ async function handleMovement(material, type) {
     try {
         Components.showToast(`Registrando ${type.toLowerCase()}...`, 'info');
 
-        // Register movement with robust payload to ensure SheetDB captures it
-        // Sending multiple variations of keys to match potential column names
+        // Normalize tipo for Supabase (Retirada → Saída)
+        const normalizedTipo = type === 'Retirada' ? 'Saída' : 'Entrada';
+
+        // Register movement with clean payload for Supabase
         await API.registerMovement({
             material: material,
-            Material: material,
-
-            tipo: type,
-            Tipo: type,
-            tipoOperacao: type,
-
+            tipo: normalizedTipo,
             quantidade: qty,
-            Quantidade: qty,
-            qtd: qty,
-
-            usuario: user.email,
-            Usuario: user.email,
-            email: user.email
+            usuario: user.email
         });
 
         // Update stock
@@ -321,7 +348,7 @@ async function handleMovement(material, type) {
                 ? item.estoqueAtual - qty
                 : item.estoqueAtual + qty;
 
-            await API.updateItem(material, {
+            await API.updateItem(item.id, {
                 estoqueAtual: Math.max(0, newQty),
                 qtdRetiradas: type === 'Retirada'
                     ? (item.qtdRetiradas || 0) + qty

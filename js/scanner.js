@@ -92,11 +92,33 @@ const Scanner = {
     }
 };
 
-// Initialize close button
+// Initialize close button and manual input
 document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('scanner-close');
     if (closeBtn) {
         closeBtn.addEventListener('click', () => Scanner.stop());
+    }
+
+    // Manual Input Event Listeners
+    const manualInput = document.getElementById('manual-input');
+    const manualSearchBtn = document.getElementById('manual-search');
+
+    if (manualSearchBtn && manualInput) {
+        const triggerSearch = () => {
+            const text = manualInput.value;
+            if (text) {
+                Scanner.searchAndOpenItem(text);
+                manualInput.value = ''; // Clear input after search
+            }
+        };
+
+        manualSearchBtn.addEventListener('click', triggerSearch);
+
+        manualInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
     }
 });
 

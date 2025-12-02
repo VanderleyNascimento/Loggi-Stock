@@ -183,7 +183,16 @@ const Inventory = {
             return;
         }
 
-        if (!confirm(`Finalizar inventário de ${this.currentItems.length} itens?\nIsso atualizará o estoque no sistema.`)) {
+        // Use beautiful confirm modal
+        const confirmed = await ConfirmModal.show({
+            title: 'Finalizar Inventário',
+            message: `Finalizar inventário de ${this.currentItems.length} itens?\n\nIsso atualizará o estoque no sistema.`,
+            confirmText: 'Finalizar',
+            cancelText: 'Cancelar',
+            type: 'warning'
+        });
+
+        if (!confirmed) {
             return;
         }
 
@@ -205,7 +214,7 @@ const Inventory = {
                 });
 
                 // 2. Atualizar estoque
-                await API.updateItem(item.material, {
+                await API.updateItem(item.id, {
                     estoqueAtual: item.estoqueFisico
                 });
             }
@@ -247,7 +256,18 @@ const Inventory = {
         // Agrupar por data
         const grouped = {};
         this.inventoryHistory.forEach(inv => {
-            const date = inv.dataHora.split(',')[0]; // Pegar só a data
+            let date;
+            // Handle ISO date from Supabase
+            if (inv.dataHora && inv.dataHora.includes('T')) {
+                const d = new Date(inv.dataHora);
+                date = d.toLocaleDateString('pt-BR');
+            } else if (inv.dataHora) {
+                // Handle legacy format (DD/MM/YYYY, HH:MM:SS)
+                date = inv.dataHora.split(',')[0];
+            } else {
+                date = 'Data desconhecida';
+            }
+
             if (!grouped[date]) grouped[date] = [];
             grouped[date].push(inv);
         });

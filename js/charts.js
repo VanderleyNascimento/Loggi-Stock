@@ -272,14 +272,14 @@ const Charts = {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - filterPeriod);
 
-        const materialMovements = {};
-        const allDates = new Set();
+        const validMovements = [];
+        let minDate = new Date();
+        let maxDate = new Date(0);
 
+        // 1. Parse and filter movements first
         movements.forEach(mov => {
-            // Parse DD/MM/YYYY HH:mm:ss or DD/MM/YYYY, HH:mm:ss to Date object
             let movDate;
             if (typeof mov.dataHora === 'string' && mov.dataHora.includes('/')) {
-                // Replace comma with space to handle both formats: "21/11/2025 12:27:58" and "21/11/2025, 12:27:58"
                 const normalizedDateTime = mov.dataHora.replace(',', '');
                 const [datePart, timePart] = normalizedDateTime.split(' ');
                 const [day, month, year] = datePart.split('/');
@@ -288,23 +288,43 @@ const Charts = {
                 movDate = new Date(mov.dataHora);
             }
 
-            // Skip invalid dates
-            if (isNaN(movDate.getTime())) {
-                return;
+            if (isNaN(movDate.getTime())) return;
+
+            if (movDate >= cutoffDate && (mov.tipoOperacao === 'Retirada' || mov.tipoOperacao === 'Saída')) {
+                validMovements.push({ ...mov, parsedDate: movDate });
+                if (movDate < minDate) minDate = movDate;
+                if (movDate > maxDate) maxDate = movDate;
+            }
+        });
+
+        // 2. Determine granularity
+        const timeSpanHours = (maxDate - minDate) / (1000 * 60 * 60);
+        const useHourly = timeSpanHours <= 48 && validMovements.length > 0;
+
+        const materialMovements = {};
+        const allDates = new Set();
+
+        // 3. Aggregate
+        validMovements.forEach(mov => {
+            let dateKey;
+            if (useHourly) {
+                // DD/MM HH:00
+                dateKey = mov.parsedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+                    ' ' + mov.parsedDate.getHours().toString().padStart(2, '0') + 'h';
+            } else {
+                // DD/MM/YYYY
+                dateKey = mov.parsedDate.toLocaleDateString('pt-BR');
             }
 
-            if (movDate >= cutoffDate && mov.tipoOperacao === 'Retirada') {
-                const date = movDate.toLocaleDateString('pt-BR');
-                allDates.add(date);
+            allDates.add(dateKey);
 
-                if (!materialMovements[mov.material]) {
-                    materialMovements[mov.material] = {};
-                }
-                if (!materialMovements[mov.material][date]) {
-                    materialMovements[mov.material][date] = 0;
-                }
-                materialMovements[mov.material][date] += parseInt(mov.quantidade) || 0;
+            if (!materialMovements[mov.material]) {
+                materialMovements[mov.material] = {};
             }
+            if (!materialMovements[mov.material][dateKey]) {
+                materialMovements[mov.material][dateKey] = 0;
+            }
+            materialMovements[mov.material][dateKey] += parseInt(mov.quantidade) || 0;
         });
 
         // Show message if no data available
@@ -325,9 +345,28 @@ const Charts = {
         }
 
         const dates = Array.from(allDates).sort((a, b) => {
-            const [dA, mA, yA] = a.split('/');
-            const [dB, mB, yB] = b.split('/');
-            return new Date(yA, mA - 1, dA) - new Date(yB, mB - 1, dB);
+            if (useHourly) {
+                // Format: DD/MM HH:00h
+                // We need to parse this back to compare, or just rely on string comparison if format is consistent
+                // Better to parse roughly
+                const [datePart, timePart] = a.split(' ');
+                const [dayA, monthA] = datePart.split('/');
+                const hourA = parseInt(timePart);
+
+                const [datePartB, timePartB] = b.split(' ');
+                const [dayB, monthB] = datePartB.split('/');
+                const hourB = parseInt(timePartB);
+
+                // Compare months, then days, then hours
+                if (monthA !== monthB) return monthA - monthB;
+                if (dayA !== dayB) return dayA - dayB;
+                return hourA - hourB;
+            } else {
+                // Format: DD/MM/YYYY
+                const [dA, mA, yA] = a.split('/');
+                const [dB, mB, yB] = b.split('/');
+                return new Date(yA, mA - 1, dA) - new Date(yB, mB - 1, dB);
+            }
         });
 
         const colorPalette = [
@@ -349,34 +388,25 @@ const Charts = {
                 label: material,
                 data: dates.map(date => materialMovements[material][date] || 0),
                 borderColor: colorPalette[idx % colorPalette.length],
-                backgroundColor: colorPalette[idx % colorPalette.length] + '20',
+                backgroundColor: colorPalette[idx % colorPalette.length],
                 borderWidth: 2,
                 tension: 0.4,
                 pointRadius: 3,
                 pointHoverRadius: 5,
                 fill: false,
-                hidden: idx >= 10
+                showLine: true,
+                spanGaps: true,
+                hidden: idx >= 10 // Hide items after top 10 by default
             };
         });
 
-        const canvas = document.getElementById('chart-timeline');
-        const container = canvas.parentElement;
-        const isMobile = window.innerWidth < 768;
+        const ctx = document.getElementById('chart-timeline').getContext('2d');
 
-        // Mobile: fit to viewport, Desktop: horizontal scroll
-        if (isMobile) {
-            container.style.overflowX = 'visible';
-            canvas.style.width = '100%';
-            canvas.style.height = '300px';
-        } else {
-            const dateWidth = 35;
-            const chartWidth = Math.max(800, dates.length * dateWidth);
-            container.style.overflowX = 'auto';
-            canvas.style.minWidth = chartWidth + 'px';
-            canvas.style.height = '400px';
+        // Destroy existing chart if any
+        if (this.instances.timeline) {
+            this.instances.timeline.destroy();
         }
 
-        const ctx = canvas.getContext('2d');
         this.instances.timeline = new Chart(ctx, {
             type: 'line',
             data: {
@@ -384,78 +414,40 @@ const Charts = {
                 datasets: datasets
             },
             options: {
-                responsive: isMobile,
+                responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                },
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: isMobile ? 6 : 8,
-                            font: {
-                                size: isMobile ? 9 : 10,
-                                weight: '600'
-                            },
-                            boxWidth: 10,
-                            boxHeight: 10
-                        },
-                        onClick: (e, legendItem, legend) => {
-                            const index = legendItem.datasetIndex;
-                            const chart = legend.chart;
-                            const meta = chart.getDatasetMeta(index);
-                            meta.hidden = !meta.hidden;
-                            chart.update();
-                        }
+                        display: false // Disable default legend
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
-                        titleFont: {
-                            size: 13,
-                            weight: 'bold'
-                        },
-                        bodyFont: {
-                            size: 12
-                        },
-                        callbacks: {
-                            label: function (context) {
-                                return context.dataset.label + ': ' + context.parsed.y + ' retiradas';
-                            }
-                        }
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#1e293b',
+                        bodyColor: '#475569',
+                        borderColor: '#e2e8f0',
+                        borderWidth: 1,
+                        padding: 10,
+                        boxPadding: 4
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: {
-                            color: 'rgba(148, 163, 184, 0.1)'
-                        },
-                        ticks: {
-                            font: {
-                                size: isMobile ? 9 : 11
-                            }
-                        },
                         title: {
-                            display: !isMobile,
-                            text: 'Quantidade de Retiradas',
-                            font: {
-                                size: 12,
-                                weight: '600'
-                            }
+                            display: true,
+                            text: 'Quantidade de Retiradas'
+                        },
+                        grid: {
+                            color: '#f1f5f9'
                         }
                     },
                     x: {
                         grid: {
-                            color: 'rgba(148, 163, 184, 0.05)'
+                            display: false
                         },
                         ticks: {
-                            font: {
-                                size: isMobile ? 8 : 10
-                            },
                             maxRotation: 45,
                             minRotation: 45
                         }
@@ -465,6 +457,45 @@ const Charts = {
         });
 
         window.timelineChartInstance = this.instances.timeline;
+
+        // Generate Custom HTML Legend
+        this.generateHtmlLegend(this.instances.timeline, 'chart-timeline-legend');
+    },
+
+    // Helper to generate custom HTML legend
+    generateHtmlLegend(chart, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = ''; // Clear existing
+
+        const items = chart.data.datasets.map((dataset, index) => {
+            const isHidden = !chart.isDatasetVisible(index);
+            const color = dataset.borderColor;
+
+            const item = document.createElement('div');
+            item.className = `flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer border transition-all ${isHidden ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-200 shadow-sm'}`;
+            item.onclick = () => {
+                chart.setDatasetVisibility(index, !chart.isDatasetVisible(index));
+                chart.update();
+                this.generateHtmlLegend(chart, containerId); // Re-render legend to update styles
+            };
+
+            const box = document.createElement('div');
+            box.className = 'w-3 h-3 rounded-full';
+            box.style.backgroundColor = color;
+            if (isHidden) box.style.backgroundColor = '#cbd5e1';
+
+            const text = document.createElement('span');
+            text.className = `text-xs font-medium ${isHidden ? 'text-slate-700' : 'text-slate-900'}`;
+            text.textContent = dataset.label;
+
+            item.appendChild(box);
+            item.appendChild(text);
+            return item;
+        });
+
+        items.forEach(item => container.appendChild(item));
     },
 
     // EPI Compliance Chart

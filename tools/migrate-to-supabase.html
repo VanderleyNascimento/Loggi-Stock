@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migração SheetDB → Supabase</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #3ecf8e;
+            padding-bottom: 10px;
+        }
+
+        button {
+            background: #3ecf8e;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        button:hover {
+            background: #2fb57a;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .log {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .success {
+            color: #2fb57a;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .info {
+            color: #2196F3;
+        }
+
+        .warning {
+            color: #ff9800;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 Migração de Dados: SheetDB → Supabase</h1>
+
+        <p><strong>Este script irá:</strong></p>
+        <ol>
+            <li>Buscar todos os dados do SheetDB (Google Sheets)</li>
+            <li>Copiar todos os itens de estoque</li>
+            <li>Copiar todos os movimentos</li>
+            <li>Copiar todos os usuários</li>
+        </ol>
+
+        <hr>
+
+        <label>🔑 SheetDB API URL (antiga):</label>
+        <input type="text" id="sheetdb-url" value="https://sheetdb.io/api/v1/qi3jec0p8ofj7"
+            placeholder="https://sheetdb.io/api/v1/...">
+
+        <button onclick="startMigration()" id="btn-migrate">Iniciar Migração</button>
+        <button onclick="clearLog()">Limpar Log</button>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://mmxofcifnpracghyuhmd.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1teG9mY2lmbnByYWNnaHl1aG1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MjA2NzMsImV4cCI6MjA4MDE5NjY3M30.VRiJQYQWVfsovwTsVgfCXs_T0MB_Pi2-8tFoRFL1q_w';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function startMigration() {
+            const btn = document.getElementById('btn-migrate');
+            btn.disabled = true;
+            btn.textContent = 'Migrando...';
+
+            clearLog();
+            log('🚀 Iniciando migração...', 'info');
+
+            try {
+                const sheetdbUrl = document.getElementById('sheetdb-url').value;
+
+                log('📥 Buscando dados do SheetDB...', 'info');
+
+                const [estoque, movimentacoes, usuarios] = await Promise.all([
+                    fetch(`${sheetdbUrl}?sheet=Estoque`).then(r => r.json()),
+                    fetch(`${sheetdbUrl}?sheet=Movimentacoes`).then(r => r.json()),
+                    fetch(`${sheetdbUrl}?sheet=usuarios`).then(r => r.json())
+                ]);
+
+                log(`✅ ${estoque.length} itens de estoque`, 'success');
+                log(`✅ ${movimentacoes.length} movimentações`, 'success');
+                log(`✅ ${usuarios.length} usuários`, 'success');
+
+                // Migrate Estoque - USANDO NOMES LOWERCASE
+                log('📤 Migrando estoque para Supabase...', 'info');
+                const estoqueData = estoque.map(item => ({
+                    id: parseInt(item.id),
+                    material: item.material,
+                    estoqueatual: parseInt(item.estoqueAtual) || 0,
+                    estoquecritico: parseInt(item.estoqueCritico) || 0,
+                    qtdretiradas: parseInt(item.qtdRetiradas) || 0,
+                    epiativo: parseInt(item.epiAtivo) || 0
+                }));
+
+                const { data: estoqueResult, error: estoqueError } = await supabase
+                    .from('estoque')
+                    .upsert(estoqueData, { onConflict: 'id' });
+
+                if (estoqueError) throw new Error(`Erro no estoque: ${estoqueError.message}`);
+                log(`✅ ${estoqueData.length} itens de estoque migrados`, 'success');
+
+                // Migrate Movimentacoes - USANDO NOMES LOWERCASE
+                log('📤 Migrando movimentações...', 'info');
+                const movData = movimentacoes.map((mov, index) => {
+                    let isoDate = new Date().toISOString();
+                    if (mov.dataHora) {
+                        try {
+                            const rawDate = mov.dataHora.trim();
+
+                            // Se já está em formato ISO válido
+                            if (rawDate.match(/^\d{4}-\d{2}-\d{2}T/)) {
+                                const testDate = new Date(rawDate);
+                                if (!isNaN(testDate.getTime())) {
+                                    isoDate = rawDate;
+                                }
+                            }
+                            // Se está em formato brasileiro DD/MM/YYYY
+                            else if (rawDate.includes('/')) {
+                                const parts = rawDate.split(' ');
+                                const dateParts = parts[0].split('/');
+                                const timePart = parts[1] || '00:00:00';
+
+                                if (dateParts.length === 3 && dateParts[0] && dateParts[1] && dateParts[2]) {
+                                    const day = dateParts[0].padStart(2, '0');
+                                    const month = dateParts[1].padStart(2, '0');
+                                    const year = dateParts[2];
+
+                                    const converted = `${year}-${month}-${day}T${timePart}Z`;
+                                    const testDate = new Date(converted);
+                                    if (!isNaN(testDate.getTime())) {
+                                        isoDate = converted;
+                                    }
+                                }
+                            }
+                        } catch (e) { }
+                    }
+                    return {
+                        datahora: isoDate,
+                        material: mov.material,
+                        tipooperacao: (mov.tipo || mov.tipoOperacao || '').toLowerCase().includes('entr') ? 'Entrada' : 'Saída',
+                        quantidade: parseInt(mov.quantidade) || parseInt(mov.qtd) || 0,
+                        email: mov.usuario || mov.email
+                    };
+                });
+
+                for (let i = 0; i < movData.length; i += 100) {
+                    const batch = movData.slice(i, i + 100);
+                    const { error: movError } = await supabase
+                        .from('movimentacoes')
+                        .insert(batch);
+
+                    if (movError) throw new Error(`Erro nas movimentações: ${movError.message}`);
+                    log(`✅ Migrados ${Math.min(i + 100, movData.length)}/${movData.length} movimentações`, 'success');
+                }
+
+                // Migrate Usuarios
+                if (usuarios.length > 0) {
+                    log('📤 Migrando usuários...', 'info');
+                    const userData = usuarios.map(user => ({
+                        email: user.email,
+                        nome: user.nome,
+                        cargo: user.cargo,
+                        ativo: parseInt(user.ativo) || 1
+                    }));
+
+                    const { error: userError } = await supabase
+                        .from('usuarios')
+                        .upsert(userData, { onConflict: 'email' });
+
+                    if (userError) throw new Error(`Erro nos usuários: ${userError.message}`);
+                    log(`✅ ${userData.length} usuários migrados`, 'success');
+                }
+
+                log('🎉 Migração concluída com sucesso!', 'success');
+                log('✅ Recarregue a página index.html e teste o sistema', 'success');
+
+            } catch (error) {
+                log(`❌ Erro na migração: ${error.message}`, 'error');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Iniciar Migração';
+            }
+        }
+    </script>
+</body>
+
+</html>

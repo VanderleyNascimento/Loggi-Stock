@@ -33,13 +33,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Load data from API
-// Load data from API
 window.loadData = async function () {
     try {
         const [stock, movements] = await Promise.all([
             API.getStock(),
             API.getMovements()
         ]);
+
+        // DEBUG: Inspect raw data
+        if (stock && stock.length > 0) {
+            console.log('🔍 DEBUG: Raw Keys:', Object.keys(stock[0]));
+            const rawItem = stock.find(i => i.material && i.material.includes('Bota 20'));
+            if (rawItem) console.log('🔍 DEBUG: Raw Item:', JSON.stringify(rawItem));
+        }
 
         // Normalize data
         window.stockData = (stock || []).map(item => ({
@@ -49,7 +55,7 @@ window.loadData = async function () {
             estoqueCritico: parseInt(item.estoqueCritico) || 0,
             qtdRetiradas: parseInt(item.qtdRetiradas) || 0,
             epiAtivo: item.epiAtivo
-        }));
+        })).sort((a, b) => a.material.localeCompare(b.material));
 
         window.movementsData = (movements || [])
             .map(m => ({
@@ -58,8 +64,7 @@ window.loadData = async function () {
                 tipoOperacao: m.tipo || m.tipoOperacao, // SheetDB retorna 'tipo'
                 quantidade: parseInt(m.quantidade || m.qtd) || 0,
                 email: m.usuario || m.email
-            }))
-            .reverse();
+            }));
 
         // Render UI
         Components.renderKPIs(window.stockData, window.movementsData);
@@ -164,6 +169,16 @@ window.applyFilters = function () {
 
     // Re-render with filtered data
     Components.renderMaterialsTable(filtered);
+
+    // Also update charts if they are visible
+    if (window.movementsData && window.stockData) {
+        // Filter movements to match the filtered stock items (e.g. only show EPI movements if EPI filter is active)
+        const allowedMaterials = new Set(filtered.map(i => i.material));
+        const filteredMovements = window.movementsData.filter(m => allowedMaterials.has(m.material));
+
+        Charts.renderMovementTimeline(filteredMovements, window.stockData, period);
+    }
+
     Components.showToast(`Filtros aplicados: ${filtered.length} itens`, 'success');
 };
 
@@ -195,16 +210,6 @@ function setupEventListeners() {
         }
     });
 
-    // Add item button (materials view) - REMOVED: usando FAB ao invés
-    // document.getElementById('btn-add-item-materials').addEventListener('click', () => {
-    //     openItemModal();
-    // });
-
-    // Close modals - REMOVED: botão de fechar item não tem esse ID
-    // document.getElementById('modal-close').addEventListener('click', () => {
-    //     document.getElementById('modal-item').classList.add('hidden');
-    // });
-
     document.getElementById('movement-close').addEventListener('click', () => {
         document.getElementById('modal-movement').classList.add('hidden');
     });
@@ -214,15 +219,6 @@ function setupEventListeners() {
         e.preventDefault();
         await handleItemSave();
     });
-
-    // Search materials - REMOVED: elemento não existe no HTML
-    // document.getElementById('search-materials').addEventListener('input', (e) => {
-    //     const searchTerm = e.target.value.toLowerCase();
-    //     const filtered = window.stockData.filter(item =>
-    //         item.material.toLowerCase().includes(searchTerm)
-    //     );
-    //     Components.renderMaterialsTable(filtered);
-    // });
 
     // Close modals on overlay click
     document.getElementById('modal-item').addEventListener('click', (e) => {
@@ -264,7 +260,7 @@ async function handleItemSave() {
     const name = document.getElementById('input-name').value;
     const qty = parseInt(document.getElementById('input-qty').value);
     const min = parseInt(document.getElementById('input-min').value);
-    const isEpi = document.getElementById('input-epi').checked ? 'Sim' : 'Não';
+    const isEpi = document.getElementById('input-epi').checked ? 1 : 0;
     const submitBtn = document.querySelector('#form-item button[type="submit"]');
 
     // Set loading state
@@ -284,7 +280,12 @@ async function handleItemSave() {
             Components.showToast('Item atualizado com sucesso!', 'success');
         } else {
             // Create
+            // Generate new ID
+            const maxId = window.stockData.reduce((max, item) => Math.max(max, item.id || 0), 0);
+            const newId = maxId + 1;
+
             await API.createItem({
+                id: newId,
                 material: name,
                 estoqueAtual: qty,
                 estoqueCritico: min,
@@ -303,9 +304,6 @@ async function handleItemSave() {
         Components.setButtonLoading('btn-save-item', false);
     }
 }
-
-// Movement functions are now handled by Components.js
-// window.openMovementModal and window.handleMovement removed to avoid conflicts
 
 // Search materials
 const searchMaterials = document.getElementById('search-materials');
