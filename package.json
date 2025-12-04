@@ -1,0 +1,9 @@
+{
+    "name": "loggi-stock",
+    "version": "1.0.0",
+    "description": "Sistema de Gestão de Estoque",
+    "scripts": {
+        "build": "node build-config.js"
+    },
+    "dependencies": {}
+}
