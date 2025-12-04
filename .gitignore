@@ -13,6 +13,7 @@
 
 # API Keys (CRITICAL - DO NOT COMMIT!)
 js/config.js
+js/supabase-config.js
 
 # IDE
 .vscode/

@@ -157,13 +157,54 @@ cd GAS-ESTOQUE
 
 3. **Configure as Credenciais:**
 
-   Edite `js/supabase-config.js` com suas credenciais do Supabase:
+> [!CAUTION]
+> **NUNCA commite credenciais reais!** Os arquivos `js/config.js` e `js/supabase-config.js` estão protegidos pelo `.gitignore`. Use sempre os templates `.example.js` como referência.
+
+#### 3.1. Configurar Supabase
+
+Copie o template e adicione suas credenciais:
+
+```bash
+cp js/supabase-config.example.js js/supabase-config.js
+```
+
+Edite `js/supabase-config.js`:
 
 ```javascript
-// js/supabase-config.js
-const SUPABASE_URL = 'SUA_URL_SUPABASE';
-const SUPABASE_KEY = 'SUA_ANON_KEY_SUPABASE';
+const SUPABASE_URL = 'https://SEU_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'SUA_ANON_KEY_AQUI';
 ```
+
+📍 **Onde encontrar:**
+- Acesse seu projeto no [Supabase Dashboard](https://app.supabase.com/)
+- Vá em **Settings** → **API**
+- Copie **Project URL** e **anon/public key**
+
+#### 3.2. Configurar SheetDB (Opcional - Legacy)
+
+Se ainda estiver usando SheetDB, copie o template:
+
+```bash
+cp js/config.example.js js/config.js
+```
+
+Edite `js/config.js`:
+
+```javascript
+const CONFIG = {
+    ESTOQUE_API: 'https://sheetdb.io/api/v1/SEU_ID_ESTOQUE',
+    USERS_API: 'https://sheetdb.io/api/v1/SEU_ID_USUARIOS?sheet=usuarios',
+    // ...
+};
+```
+
+> [!WARNING]
+> **Credenciais Comprometidas?**
+> 
+> Se você acidentalmente commitou credenciais:
+> 1. **Rotacione imediatamente** as chaves no Supabase/SheetDB
+> 2. Limpe o histórico do Git com `git filter-branch` ou BFG Repo-Cleaner
+> 3. Force push para sobrescrever o histórico remoto (⚠️ cuidado em projetos colaborativos)
 
 4. **Execute localmente:**
 

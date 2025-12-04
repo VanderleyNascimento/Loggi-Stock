@@ -1,7 +1,8 @@
 // API Layer - SheetDB Communication
 // =====================================
 
-const API_URL = 'https://sheetdb.io/api/v1/qi3jec0p8ofj7';
+// Use centralized config for API URLs
+const API_URL = window.CONFIG?.ESTOQUE_API || 'https://sheetdb.io/api/v1/SEU_ID_AQUI';
 
 const API = {
     // Cache configuration

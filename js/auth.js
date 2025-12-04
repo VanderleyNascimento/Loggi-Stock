@@ -1,9 +1,8 @@
 // Authentication Module with SHA-256 (SheetDB API)
 // ================================================
 
-// SheetDB API for Users - NOME SEM ACENTO
-// SheetDB API for Users - NOME SEM ACENTO
-const USERS_API = 'https://sheetdb.io/api/v1/eqj0lnjk4yht0?sheet=usuarios';
+_API || 'https://sheetdb.io/api/v1/SEU_ID_AQUI?sheet=usuarios';// Use centralized config for API URLs
+const USERS_API = window.CONFIG?.USERS
 
 // SHA-256 Hash Function (secure password hashing)
 async function sha256(message) {
